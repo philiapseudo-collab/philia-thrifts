@@ -37,6 +37,9 @@ COPY --from=builder /root/.local /root/.local
 # Copy application code
 COPY . .
 
+# Make start.sh executable
+RUN chmod +x start.sh
+
 # Expose port for Railway
 EXPOSE 8000
 
