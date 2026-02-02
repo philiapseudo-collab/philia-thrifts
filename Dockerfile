@@ -45,5 +45,7 @@ EXPOSE 8080
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
     CMD python -c "import requests; requests.get('http://localhost:8080/health')"
 
-# Use main.py as entry point to handle PORT environment variable
-ENTRYPOINT ["python", "main.py"]
+# Use shell script as entry point
+COPY start.sh /start.sh
+RUN chmod +x /start.sh
+ENTRYPOINT ["/start.sh"]
