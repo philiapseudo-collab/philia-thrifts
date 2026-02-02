@@ -2,30 +2,24 @@
 import os
 import sys
 
-# Force unbuffered output
-sys.stdout.reconfigure(line_buffering=True)
-sys.stderr.reconfigure(line_buffering=True)
-
-print("=" * 50, flush=True)
-print("PHILIA THRIFTS BOT STARTING", flush=True)
-print("=" * 50, flush=True)
-print(f"Python version: {sys.version}", flush=True)
-print(f"Working dir: {os.getcwd()}", flush=True)
-print(f"PORT env var: {os.environ.get('PORT', 'NOT SET')}", flush=True)
-print(f"All env vars: {dict(os.environ)}", flush=True)
+# Print immediately
+os.write(1, b"=== PHILIA THRIFTS BOT STARTING ===\n")
+os.write(1, f"Python: {sys.version}\n".encode())
+os.write(1, f"Args: {sys.argv}\n".encode())
 
 try:
+    os.write(1, b"Getting PORT...\n")
     port = int(os.environ.get("PORT", "8080"))
-    print(f"Using port: {port}", flush=True)
+    os.write(1, f"Port: {port}\n".encode())
     
-    print("Importing uvicorn...", flush=True)
+    os.write(1, b"Importing uvicorn...\n")
     import uvicorn
     
-    print("Starting uvicorn...", flush=True)
+    os.write(1, b"Starting uvicorn...\n")
     uvicorn.run("app.main:app", host="0.0.0.0", port=port)
     
 except Exception as e:
-    print(f"ERROR: {e}", flush=True)
+    os.write(2, f"ERROR: {e}\n".encode())
     import traceback
-    traceback.print_exc()
+    os.write(2, traceback.format_exc().encode())
     sys.exit(1)
