@@ -109,8 +109,7 @@ class Inventory(SQLModel, table=True):
     )
     status: InventoryStatus = Field(
         default=InventoryStatus.AVAILABLE,
-        sa_column=Column(SQLEnum(InventoryStatus, native_enum=False)),
-        index=True  # Indexed for fast available item queries
+        sa_column=Column(SQLEnum(InventoryStatus, native_enum=False), index=True)
     )
     image_url: Optional[str] = Field(default=None, max_length=500)
     created_at: datetime = Field(default_factory=datetime.utcnow)
