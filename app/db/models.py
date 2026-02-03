@@ -2,18 +2,16 @@
 Database models using SQLModel (SQLAlchemy 2.0 + Pydantic).
 Strict typing and enum constraints for production safety.
 
-Phase 2 Refinements:
-- User: tiktok_id as string PK, last_interaction_at indexed
-- Inventory: measurements as Dict[str, float] for decimal support
-- Order: Removed items_json, relies on OrderItem junction table
-- OrderItem: New junction table for Order-Inventory relationship
-- MessageRole: Kept explicit name (not generic "Role")
+Updated for Philia Thrifts TikTok Bot:
+- Inventory model evolved with category, tier, brand, fit_notes, price_kes, negotiable
+- Measurements JSONB structure optimized for Kenyan thrift market
+- Sizing discrepancy support for LLM testing
 """
 from datetime import datetime
 from decimal import Decimal
 from enum import Enum as PyEnum
 from typing import Optional, Dict, Union
-from sqlmodel import Field, SQLModel, Column, String, JSON, DECIMAL
+from sqlmodel import Field, SQLModel, Column, String, JSON, DECIMAL, Integer, Text, Boolean
 from sqlalchemy import Enum as SQLEnum
 
 
@@ -44,6 +42,19 @@ class MessageRole(str, PyEnum):
     USER = "user"
     ASSISTANT = "assistant"
     SYSTEM = "system"
+
+
+class ProductCategory(str, PyEnum):
+    """Product category for inventory classification."""
+    CLOTHES = "CLOTHES"
+    SHOES = "SHOES"
+
+
+class ProductTier(str, PyEnum):
+    """Product pricing tier for target demographic segmentation."""
+    BUDGET = "BUDGET"           # ~1,000 - 1,500 KES (Students/Hustlers)
+    MID_RANGE = "MID_RANGE"      # ~2,000 - 4,500 KES (Working class)
+    PREMIUM = "PREMIUM"          # ~5,000 - 12,000 KES (Collectors/Enthusiasts)
 
 
 # ============================================================================
@@ -89,9 +100,17 @@ class Inventory(SQLModel, table=True):
     Unique thrift items with strict status management.
     
     Key Fields:
-    - measurements: Dict[str, float] for decimal precision (e.g., {"pit_to_pit": 22.5})
+    - category: CLOTHES or SHOES (enum)
+    - tier: BUDGET/MID_RANGE/PREMIUM (enum for demographic targeting)
+    - brand: Free text, nullable for unbranded Gikomba finds
+    - price_kes: Integer pricing in Kenyan Shillings (no decimal rounding issues)
+    - measurements: JSONB with Kenyan market standards:
+      * CLOTHES: {"pit_to_pit": "22in", "shoulder_to_hem": "28in", "waist": "32in"}
+      * SHOES: {"us_size": 10, "uk_size": 9, "cm": 28}
+    - fit_notes: Detailed text for AI SDR to explain actual fit vs tag
+    - tag_size: What's printed on the label (may differ from fit_notes)
+    - negotiable: Budget/Mid = False, Premium = True (bargaining psychology)
     - status: AVAILABLE/RESERVED/SOLD (enum constraint)
-    - price: Decimal(10, 2) for financial accuracy
     """
     __tablename__ = "inventory"
     
@@ -99,14 +118,26 @@ class Inventory(SQLModel, table=True):
     sku: str = Field(unique=True, index=True, max_length=100)
     name: str = Field(max_length=255, index=True)  # Indexed for ILIKE searches
     description: Optional[str] = Field(default=None, sa_column=Column(String))
-    price: Decimal = Field(
-        sa_column=Column(DECIMAL(10, 2))  # Max $99,999.99
+    
+    # New fields for TikTok automation bot
+    category: ProductCategory = Field(
+        sa_column=Column(SQLEnum(ProductCategory, native_enum=False))
     )
-    size_label: Optional[str] = Field(default=None, max_length=50)  # e.g., "L", "W32 L30"
-    measurements: Optional[Dict[str, float]] = Field(
-        default=None, 
-        sa_column=Column(JSON)  # Stores {"pit_to_pit": 22.5, "length": 28.0}
+    tier: ProductTier = Field(
+        sa_column=Column(SQLEnum(ProductTier, native_enum=False), index=True)
     )
+    brand: Optional[str] = Field(default=None, max_length=100, nullable=True)
+    price_kes: int = Field(sa_column=Column(Integer), index=True)
+    negotiable: bool = Field(default=False)
+    
+    # Sizing fields (critical for AI SDR)
+    tag_size: str = Field(max_length=50)  # e.g., "L", "US 10", "W32 L30"
+    measurements: Optional[Dict[str, Union[str, int, float]]] = Field(
+        default=None,
+        sa_column=Column(JSON)  # Stores Kenyan market standard measurements
+    )
+    fit_notes: str = Field(sa_column=Column(Text))  # Detailed fit explanation
+    
     status: InventoryStatus = Field(
         default=InventoryStatus.AVAILABLE,
         sa_column=Column(SQLEnum(InventoryStatus, native_enum=False), index=True)

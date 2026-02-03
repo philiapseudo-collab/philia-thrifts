@@ -1,267 +1,676 @@
+#!/usr/bin/env python3
 """
-Database seeding script for realistic thrift inventory.
+Philia Thrifts - Database Seeding Script
+========================================
+Generates 40 realistic thrift items for TikTok automation bot testing.
+
+Price Distribution:
+- 15 Budget Items (1,000 - 1,500 KES): Students/Hustlers
+- 15 Mid-Range Items (2,000 - 4,500 KES): Working class  
+- 10 Premium Items (5,000 - 12,000 KES): Collectors/Enthusiasts
+
+SDR Testing: 8 items have tag_size/fit_notes discrepancies to test LLM accuracy.
 
 Usage:
-    python scripts/seed_db.py
-
-This script populates the inventory table with 10 realistic thrift items
-including vintage clothing, streetwear, and designer pieces.
+    python scripts/seed_db.py seed    # Add all items
+    python scripts/seed_db.py clear   # Clear all inventory
 """
 import asyncio
+import logging
+import random
 import sys
-from pathlib import Path
-from decimal import Decimal
+from typing import List, Dict, Any
+from sqlmodel import select
 
-# Add project root to Python path
-project_root = Path(__file__).parent.parent
-sys.path.insert(0, str(project_root))
+# Add parent directory to path for imports
+sys.path.insert(0, "c:\\projects\\philia-thrifts")
 
-from app.db.database import async_session_maker
-from app.db.models import Inventory, InventoryStatus
+from app.db.database import async_session_maker, engine
+from app.db.models import Inventory, ProductCategory, ProductTier, InventoryStatus
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+)
+logger = logging.getLogger(__name__)
 
 
 # ============================================================================
-# Realistic Thrift Inventory Data
+# MOCK DATA: 40 THRIFT ITEMS FOR PHILIA THRIFTS
 # ============================================================================
 
-SEED_ITEMS = [
+BUDGET_ITEMS: List[Dict[str, Any]] = [
+    # Budget Clothes (1,000 - 1,500 KES)
     {
-        "sku": "VNT-NIKE-WB-001",
-        "name": "Vintage Nike Windbreaker",
-        "description": "90s Nike windbreaker in excellent condition. Classic colorblock design with swoosh logo. Perfect for retro streetwear fits.",
-        "price": Decimal("45.00"),
-        "size_label": "L",
-        "measurements": {
-            "pit_to_pit": 24.5,
-            "length": 28.0,
-            "sleeve_length": 25.5
-        },
-        "status": InventoryStatus.AVAILABLE,
-        "image_url": "https://example.com/nike-windbreaker.jpg"
+        "name": "Unbranded Vintage Flannel Shirt",
+        "description": "Classic thrift find from Gikomba. Soft cotton, faded red check pattern.",
+        "category": ProductCategory.CLOTHES,
+        "tier": ProductTier.BUDGET,
+        "brand": None,
+        "price_kes": 1000,
+        "tag_size": "L",
+        "measurements": {"pit_to_pit": "22in", "shoulder_to_hem": "29in", "waist": "N/A"},
+        "fit_notes": "True to size. Roomy fit, good for layering over a tee.",
+        "negotiable": False,
     },
     {
-        "sku": "CRH-DET-BLK-002",
-        "name": "Carhartt Detroit Jacket - Black",
-        "description": "Classic Carhartt Detroit jacket. Heavy-duty duck canvas with blanket lining. Minimal wear, broken in perfectly.",
-        "price": Decimal("89.99"),
-        "size_label": "XL",
-        "measurements": {
-            "pit_to_pit": 26.0,
-            "length": 30.5,
-            "shoulder": 21.0,
-            "sleeve_length": 26.0
-        },
-        "status": InventoryStatus.AVAILABLE,
-        "image_url": "https://example.com/carhartt-jacket.jpg"
+        "name": "Basic Cotton Oversized Tee",
+        "description": "Heavyweight cotton, boxy fit. Perfect for Juja campus vibes.",
+        "category": ProductCategory.CLOTHES,
+        "tier": ProductTier.BUDGET,
+        "brand": None,
+        "price_kes": 800,
+        "tag_size": "XL",
+        "measurements": {"pit_to_pit": "24in", "shoulder_to_hem": "30in", "waist": "N/A"},
+        "fit_notes": "Very oversized. Tag says XL but fits like XXL.",  # DISCREPANCY #1
+        "negotiable": False,
     },
     {
-        "sku": "LEV-501-W32L30-003",
-        "name": "Levi's 501 Original Fit Jeans",
-        "description": "Classic straight leg Levi's 501. Medium wash, no major distressing. True vintage feel.",
-        "price": Decimal("35.00"),
-        "size_label": "W32 L30",
-        "measurements": {
-            "waist": 32.0,
-            "inseam": 30.0,
-            "rise": 11.5,
-            "leg_opening": 8.0
-        },
-        "status": InventoryStatus.AVAILABLE,
-        "image_url": "https://example.com/levis-501.jpg"
+        "name": "Grade 1 Thrift Denim Jacket",
+        "description": "Light wash, minor distressing. Entry-level vintage piece.",
+        "category": ProductCategory.CLOTHES,
+        "tier": ProductTier.BUDGET,
+        "brand": "Unknown",
+        "price_kes": 1200,
+        "tag_size": "M",
+        "measurements": {"pit_to_pit": "20in", "shoulder_to_hem": "26in", "waist": "N/A"},
+        "fit_notes": "Cropped fit. Tag says M but fits like S.",  # DISCREPANCY #2
+        "negotiable": False,
     },
     {
-        "sku": "ADI-TRK-NVY-004",
-        "name": "Adidas Track Jacket - Navy",
-        "description": "Adidas originals track jacket with trefoil logo. Navy blue with white stripes. Clean, no flaws.",
-        "price": Decimal("38.50"),
-        "size_label": "M",
-        "measurements": {
-            "pit_to_pit": 22.0,
-            "length": 26.5,
-            "sleeve_length": 24.0
-        },
-        "status": InventoryStatus.AVAILABLE,
-        "image_url": "https://example.com/adidas-track.jpg"
+        "name": "Vintage Striped Polo Shirt",
+        "description": "Navy and white stripes, pique cotton. Casual Friday ready.",
+        "category": ProductCategory.CLOTHES,
+        "tier": ProductTier.BUDGET,
+        "brand": None,
+        "price_kes": 1100,
+        "tag_size": "M",
+        "measurements": {"pit_to_pit": "20.5in", "shoulder_to_hem": "27in", "waist": "N/A"},
+        "fit_notes": "True to size. Slim through the body.",
+        "negotiable": False,
     },
     {
-        "sku": "PTG-FLC-GRY-005",
-        "name": "Patagonia Synchilla Fleece",
-        "description": "Patagonia classic synchilla fleece pullover. Gray colorway. Super warm and cozy. Light pilling (normal for fleece).",
-        "price": Decimal("55.00"),
-        "size_label": "L",
-        "measurements": {
-            "pit_to_pit": 23.5,
-            "length": 27.0,
-            "sleeve_length": 25.0
-        },
-        "status": InventoryStatus.AVAILABLE,
-        "image_url": "https://example.com/patagonia-fleece.jpg"
+        "name": "Unbranded Cargo Pants",
+        "description": "Olive green, multiple pockets. Functional streetwear.",
+        "category": ProductCategory.CLOTHES,
+        "tier": ProductTier.BUDGET,
+        "brand": None,
+        "price_kes": 1300,
+        "tag_size": "W32 L30",
+        "measurements": {"pit_to_pit": "N/A", "shoulder_to_hem": "N/A", "waist": "32in"},
+        "fit_notes": "True to size. Relaxed fit through the leg.",
+        "negotiable": False,
     },
     {
-        "sku": "CHM-WRK-BLU-006",
-        "name": "Vintage Chambray Work Shirt",
-        "description": "Thick chambray work shirt (no tags). Perfectly faded blue. Chest pocket, single needle stitching. True workwear staple.",
-        "price": Decimal("42.00"),
-        "size_label": "M (fits oversized)",
-        "measurements": {
-            "pit_to_pit": 21.5,
-            "length": 28.5,
-            "shoulder": 18.5,
-            "sleeve_length": 24.5
-        },
-        "status": InventoryStatus.AVAILABLE,
-        "image_url": "https://example.com/chambray-shirt.jpg"
+        "name": "Thrift Find: Corduroy Shirt",
+        "description": "Brown corduroy, button-down. 90s dad vibes.",
+        "category": ProductCategory.CLOTHES,
+        "tier": ProductTier.BUDGET,
+        "brand": None,
+        "price_kes": 1000,
+        "tag_size": "L",
+        "measurements": {"pit_to_pit": "21.5in", "shoulder_to_hem": "28in", "waist": "N/A"},
+        "fit_notes": "Slightly oversized. Tag says L but fits like oversized M.",  # DISCREPANCY #3
+        "negotiable": False,
     },
     {
-        "sku": "NBL-992-GRY-007",
-        "name": "New Balance 992 - Gray",
-        "description": "New Balance 992 'Made in USA'. Gray colorway. Used but excellent condition, tons of life left. Cleaned and ready to wear.",
-        "price": Decimal("125.00"),
-        "size_label": "US 10",
-        "measurements": {
-            "length": 11.5,
-            "width": 4.25
-        },
-        "status": InventoryStatus.RESERVED,  # Example of reserved item
-        "image_url": "https://example.com/nb-992.jpg"
+        "name": "Basic Hoodie - Grey",
+        "description": "Fleece-lined, kangaroo pocket. Essential layering piece.",
+        "category": ProductCategory.CLOTHES,
+        "tier": ProductTier.BUDGET,
+        "brand": None,
+        "price_kes": 1400,
+        "tag_size": "XL",
+        "measurements": {"pit_to_pit": "23in", "shoulder_to_hem": "29in", "waist": "N/A"},
+        "fit_notes": "True to size. Roomy and comfortable.",
+        "negotiable": False,
     },
     {
-        "sku": "RLH-PLO-NVY-008",
-        "name": "Ralph Lauren Polo - Navy",
-        "description": "Classic Ralph Lauren polo shirt. Navy with green pony logo. No stains, perfect for smart casual.",
-        "price": Decimal("28.00"),
-        "size_label": "L",
-        "measurements": {
-            "pit_to_pit": 22.0,
-            "length": 29.0
-        },
-        "status": InventoryStatus.AVAILABLE,
-        "image_url": "https://example.com/rl-polo.jpg"
+        "name": "Vintage Graphic Band Tee",
+        "description": "Worn print, soft fabric. Rock aesthetic on a budget.",
+        "category": ProductCategory.CLOTHES,
+        "tier": ProductTier.BUDGET,
+        "brand": None,
+        "price_kes": 900,
+        "tag_size": "M",
+        "measurements": {"pit_to_pit": "19.5in", "shoulder_to_hem": "26in", "waist": "N/A"},
+        "fit_notes": "Fitted. If you like baggy, size up.",
+        "negotiable": False,
     },
     {
-        "sku": "CMP-BCH-TAN-009",
-        "name": "Champion Reverse Weave - Tan",
-        "description": "Champion reverse weave crewneck. Tan/beige colorway. Thick heavyweight cotton. Small C logo on chest.",
-        "price": Decimal("65.00"),
-        "size_label": "XL (fits L)",
-        "measurements": {
-            "pit_to_pit": 23.0,
-            "length": 26.5,
-            "sleeve_length": 23.5
-        },
-        "status": InventoryStatus.AVAILABLE,
-        "image_url": "https://example.com/champion-crewneck.jpg"
+        "name": "Chino Shorts - Khaki",
+        "description": "Mid-length, casual wear. Perfect for Nairobi heat.",
+        "category": ProductCategory.CLOTHES,
+        "tier": ProductTier.BUDGET,
+        "brand": None,
+        "price_kes": 850,
+        "tag_size": "W32",
+        "measurements": {"pit_to_pit": "N/A", "shoulder_to_hem": "N/A", "waist": "32in"},
+        "fit_notes": "True to size. Hits just above the knee.",
+        "negotiable": False,
     },
     {
-        "sku": "DKS-CHN-BLK-010",
-        "name": "Dickies Chino Pants - Black",
-        "description": "Dickies 874 work pants. Black, regular fit. Hemmed to 30in inseam. Great condition.",
-        "price": Decimal("32.00"),
-        "size_label": "W34 L30",
-        "measurements": {
-            "waist": 34.0,
-            "inseam": 30.0,
-            "rise": 12.0,
-            "leg_opening": 8.5
-        },
-        "status": InventoryStatus.SOLD,  # Example of sold item
-        "image_url": "https://example.com/dickies-chino.jpg"
-    }
+        "name": "Thrift Sweater Vest",
+        "description": "Knitted, earth tones. Grandpa core aesthetic.",
+        "category": ProductCategory.CLOTHES,
+        "tier": ProductTier.BUDGET,
+        "brand": None,
+        "price_kes": 950,
+        "tag_size": "L",
+        "measurements": {"pit_to_pit": "21in", "shoulder_to_hem": "25in", "waist": "N/A"},
+        "fit_notes": "True to size. Layer over a shirt or tee.",
+        "negotiable": False,
+    },
+    {
+        "name": "Workwear Jacket - Navy",
+        "description": "Durable fabric, utilitarian design. Labour-ready.",
+        "category": ProductCategory.CLOTHES,
+        "tier": ProductTier.BUDGET,
+        "brand": None,
+        "price_kes": 1500,
+        "tag_size": "XL",
+        "measurements": {"pit_to_pit": "24in", "shoulder_to_hem": "28in", "waist": "N/A"},
+        "fit_notes": "Boxy fit. Good for layering.",
+        "negotiable": False,
+    },
+    {
+        "name": "Vintage Tank Top - White",
+        "description": "Ribbed cotton, sleeveless. Gym or street.",
+        "category": ProductCategory.CLOTHES,
+        "tier": ProductTier.BUDGET,
+        "brand": None,
+        "price_kes": 600,
+        "tag_size": "M",
+        "measurements": {"pit_to_pit": "19in", "shoulder_to_hem": "26in", "waist": "N/A"},
+        "fit_notes": "Fitted. Size up for relaxed fit.",
+        "negotiable": False,
+    },
+    # Budget Shoes (1,000 - 1,500 KES)
+    {
+        "name": "Thrifted Running Shoes",
+        "description": "Well-worn but plenty of life left. Basic runner.",
+        "category": ProductCategory.SHOES,
+        "tier": ProductTier.BUDGET,
+        "brand": None,
+        "price_kes": 1200,
+        "tag_size": "US 9",
+        "measurements": {"us_size": 9, "uk_size": 8, "cm": 27},
+        "fit_notes": "True to size. Good condition.",
+        "negotiable": False,
+    },
+    {
+        "name": "Canvas Slip-Ons",
+        "description": "Casual, breathable. Everyday errand shoes.",
+        "category": ProductCategory.SHOES,
+        "tier": ProductTier.BUDGET,
+        "brand": None,
+        "price_kes": 800,
+        "tag_size": "US 10",
+        "measurements": {"us_size": 10, "uk_size": 9, "cm": 28},
+        "fit_notes": "True to size. Wide feet friendly.",
+        "negotiable": False,
+    },
+    {
+        "name": "Thrift Find: Leather Loafers",
+        "description": "Brown leather, classic design. Smart casual option.",
+        "category": ProductCategory.SHOES,
+        "tier": ProductTier.BUDGET,
+        "brand": "Unknown",
+        "price_kes": 1400,
+        "tag_size": "US 8",
+        "measurements": {"us_size": 8, "uk_size": 7, "cm": 26},
+        "fit_notes": "Tag says US 8 but fits like US 9. Runs large.",  # DISCREPANCY #4
+        "negotiable": False,
+    },
+]
+
+MID_RANGE_ITEMS: List[Dict[str, Any]] = [
+    # Mid-Range Clothes (2,000 - 4,500 KES)
+    {
+        "name": "Zara Slim Fit Chinos",
+        "description": "Navy blue, stretch cotton. Office to weekend versatility.",
+        "category": ProductCategory.CLOTHES,
+        "tier": ProductTier.MID_RANGE,
+        "brand": "Zara",
+        "price_kes": 2800,
+        "tag_size": "W32 L32",
+        "measurements": {"pit_to_pit": "N/A", "shoulder_to_hem": "N/A", "waist": "32in"},
+        "fit_notes": "True to size. TTS, slight stretch in the waist.",
+        "negotiable": False,
+    },
+    {
+        "name": "H&M Oversized Hoodie",
+        "description": "Grey melange, fleece-lined. Streetwear essential.",
+        "category": ProductCategory.CLOTHES,
+        "tier": ProductTier.MID_RANGE,
+        "brand": "H&M",
+        "price_kes": 2200,
+        "tag_size": "L",
+        "measurements": {"pit_to_pit": "23in", "shoulder_to_hem": "28in", "waist": "N/A"},
+        "fit_notes": "Oversized fit. Tag says L but fits like XL.",  # DISCREPANCY #5
+        "negotiable": False,
+    },
+    {
+        "name": "Levi's 501 Original Jeans",
+        "description": "Dark wash, button fly. Classic American denim.",
+        "category": ProductCategory.CLOTHES,
+        "tier": ProductTier.MID_RANGE,
+        "brand": "Levi's",
+        "price_kes": 3500,
+        "tag_size": "W32 L30",
+        "measurements": {"pit_to_pit": "N/A", "shoulder_to_hem": "N/A", "waist": "32in"},
+        "fit_notes": "Rigid denim. Will stretch with wear. Size up if between sizes.",
+        "negotiable": False,
+    },
+    {
+        "name": "Nike Sportswear Windbreaker",
+        "description": "Black with white swoosh, lightweight. Athleisure staple.",
+        "category": ProductCategory.CLOTHES,
+        "tier": ProductTier.MID_RANGE,
+        "brand": "Nike",
+        "price_kes": 3200,
+        "tag_size": "M",
+        "measurements": {"pit_to_pit": "21in", "shoulder_to_hem": "27in", "waist": "N/A"},
+        "fit_notes": "Athletic fit. True to size for Nike.",
+        "negotiable": False,
+    },
+    {
+        "name": "Adidas Originals Track Jacket",
+        "description": "Navy with white stripes, trefoil logo. Retro sportswear.",
+        "category": ProductCategory.CLOTHES,
+        "tier": ProductTier.MID_RANGE,
+        "brand": "Adidas",
+        "price_kes": 2800,
+        "tag_size": "L",
+        "measurements": {"pit_to_pit": "22in", "shoulder_to_hem": "28in", "waist": "N/A"},
+        "fit_notes": "True to size. Classic Adidas fit.",
+        "negotiable": False,
+    },
+    {
+        "name": "Uniqlo Heattech Turtleneck",
+        "description": "Black, thermal fabric. Layering essential for cold season.",
+        "category": ProductCategory.CLOTHES,
+        "tier": ProductTier.MID_RANGE,
+        "brand": "Uniqlo",
+        "price_kes": 1800,
+        "tag_size": "M",
+        "measurements": {"pit_to_pit": "20in", "shoulder_to_hem": "26in", "waist": "N/A"},
+        "fit_notes": "Fitted. Size up if you want roomier fit.",
+        "negotiable": False,
+    },
+    {
+        "name": "Tommy Hilfiger Denim Shirt",
+        "description": "Light wash, flag logo. Preppy meets street.",
+        "category": ProductCategory.CLOTHES,
+        "tier": ProductTier.MID_RANGE,
+        "brand": "Tommy Hilfiger",
+        "price_kes": 2900,
+        "tag_size": "L",
+        "measurements": {"pit_to_pit": "22in", "shoulder_to_hem": "29in", "waist": "N/A"},
+        "fit_notes": "True to size. Roomy enough to layer.",
+        "negotiable": False,
+    },
+    {
+        "name": "Ralph Lauren Polo Shirt",
+        "description": "Navy, classic fit. The icon.",
+        "category": ProductCategory.CLOTHES,
+        "tier": ProductTier.MID_RANGE,
+        "brand": "Ralph Lauren",
+        "price_kes": 3800,
+        "tag_size": "M",
+        "measurements": {"pit_to_pit": "21in", "shoulder_to_hem": "27.5in", "waist": "N/A"},
+        "fit_notes": "Classic fit. Not too slim, not too baggy.",
+        "negotiable": False,
+    },
+    {
+        "name": "Puma Crewneck Sweatshirt",
+        "description": "Burgundy, logo embroidered. Casual comfort.",
+        "category": ProductCategory.CLOTHES,
+        "tier": ProductTier.MID_RANGE,
+        "brand": "Puma",
+        "price_kes": 2400,
+        "tag_size": "XL",
+        "measurements": {"pit_to_pit": "24in", "shoulder_to_hem": "29in", "waist": "N/A"},
+        "fit_notes": "Tag says XL but fits like L. Size up.",  # DISCREPANCY #6
+        "negotiable": False,
+    },
+    {
+        "name": "Calvin Klein Jeans Jacket",
+        "description": "Vintage wash, CK patch. 90s revival.",
+        "category": ProductCategory.CLOTHES,
+        "tier": ProductTier.MID_RANGE,
+        "brand": "Calvin Klein",
+        "price_kes": 4200,
+        "tag_size": "L",
+        "measurements": {"pit_to_pit": "22.5in", "shoulder_to_hem": "26in", "waist": "N/A"},
+        "fit_notes": "Cropped fit. True to size.",
+        "negotiable": False,
+    },
+    {
+        "name": "Gap Vintage Hoodie",
+        "description": "Faded black, heavyweight. 90s archive piece.",
+        "category": ProductCategory.CLOTHES,
+        "tier": ProductTier.MID_RANGE,
+        "brand": "Gap",
+        "price_kes": 2000,
+        "tag_size": "XL",
+        "measurements": {"pit_to_pit": "25in", "shoulder_to_hem": "30in", "waist": "N/A"},
+        "fit_notes": "Very oversized. True to vintage Gap sizing.",
+        "negotiable": False,
+    },
+    # Mid-Range Shoes (2,000 - 4,500 KES)
+    {
+        "name": "Nike Air Force 1 - White",
+        "description": "Classic, some creasing. The staple sneaker.",
+        "category": ProductCategory.SHOES,
+        "tier": ProductTier.MID_RANGE,
+        "brand": "Nike",
+        "price_kes": 3500,
+        "tag_size": "US 10",
+        "measurements": {"us_size": 10, "uk_size": 9, "cm": 28},
+        "fit_notes": "True to size. Classic AF1 fit.",
+        "negotiable": False,
+    },
+    {
+        "name": "Adidas Stan Smith - Green",
+        "description": "Clean condition, retro tennis style.",
+        "category": ProductCategory.SHOES,
+        "tier": ProductTier.MID_RANGE,
+        "brand": "Adidas",
+        "price_kes": 3200,
+        "tag_size": "US 9",
+        "measurements": {"us_size": 9, "uk_size": 8.5, "cm": 27},
+        "fit_notes": "True to size. Leather will soften.",
+        "negotiable": False,
+    },
+    {
+        "name": "Vans Old Skool - Black",
+        "description": "Skate classic, good grip remaining. Street uniform.",
+        "category": ProductCategory.SHOES,
+        "tier": ProductTier.MID_RANGE,
+        "brand": "Vans",
+        "price_kes": 2800,
+        "tag_size": "US 10.5",
+        "measurements": {"us_size": 10.5, "uk_size": 10, "cm": 28.5},
+        "fit_notes": "Snug fit. Tag says 10.5 but fits like 10.",  # DISCREPANCY #7
+        "negotiable": False,
+    },
+    {
+        "name": "Converse Chuck 70 - Navy",
+        "description": "Canvas high-top, vintage detailing. Better quality than standard Chucks.",
+        "category": ProductCategory.SHOES,
+        "tier": ProductTier.MID_RANGE,
+        "brand": "Converse",
+        "price_kes": 3000,
+        "tag_size": "US 9",
+        "measurements": {"us_size": 9, "uk_size": 8, "cm": 27},
+        "fit_notes": "Size down half size from your usual. Chuck 70s run big.",
+        "negotiable": False,
+    },
+]
+
+PREMIUM_ITEMS: List[Dict[str, Any]] = [
+    # Premium Clothes (5,000 - 12,000 KES)
+    {
+        "name": "Vintage 90s Carhartt Detroit Jacket",
+        "description": "Blanket-lined, duck canvas. Workwear grail. Made in USA era.",
+        "category": ProductCategory.CLOTHES,
+        "tier": ProductTier.PREMIUM,
+        "brand": "Carhartt",
+        "price_kes": 9500,
+        "tag_size": "L",
+        "measurements": {"pit_to_pit": "24in", "shoulder_to_hem": "26in", "waist": "N/A"},
+        "fit_notes": "Tag says L, but vintage Carhartt sizing fits like M. Boxy workwear cut.",  # DISCREPANCY #8
+        "negotiable": True,
+    },
+    {
+        "name": "North Face Nuptse Puffer 700",
+        "description": "Black, 700-fill down. Winter essential. Packs into pocket.",
+        "category": ProductCategory.CLOTHES,
+        "tier": ProductTier.PREMIUM,
+        "brand": "The North Face",
+        "price_kes": 8500,
+        "tag_size": "M",
+        "measurements": {"pit_to_pit": "23in", "shoulder_to_hem": "27in", "waist": "N/A"},
+        "fit_notes": "Puffy fit. True to size but bulky due to fill.",
+        "negotiable": True,
+    },
+    {
+        "name": "Supreme Box Logo Hoodie",
+        "description": "Heather grey, classic red box logo. Streetwear status symbol.",
+        "category": ProductCategory.CLOTHES,
+        "tier": ProductTier.PREMIUM,
+        "brand": "Supreme",
+        "price_kes": 12000,
+        "tag_size": "L",
+        "measurements": {"pit_to_pit": "23.5in", "shoulder_to_hem": "29in", "waist": "N/A"},
+        "fit_notes": "True to size. Heavyweight cotton.",
+        "negotiable": True,
+    },
+    {
+        "name": "Stüssy Stock Logo Jacket",
+        "description": "Nylon, embroidered logo. Surf meets street aesthetic.",
+        "category": ProductCategory.CLOTHES,
+        "tier": ProductTier.PREMIUM,
+        "brand": "Stüssy",
+        "price_kes": 6800,
+        "tag_size": "XL",
+        "measurements": {"pit_to_pit": "25in", "shoulder_to_hem": "30in", "waist": "N/A"},
+        "fit_notes": "Oversized fit. True to Stüssy sizing.",
+        "negotiable": True,
+    },
+    {
+        "name": "Patagonia Retro Pile Fleece",
+        "description": "Tan, deep pile fleece. Outdoor heritage brand.",
+        "category": ProductCategory.CLOTHES,
+        "tier": ProductTier.PREMIUM,
+        "brand": "Patagonia",
+        "price_kes": 7200,
+        "tag_size": "M",
+        "measurements": {"pit_to_pit": "22in", "shoulder_to_hem": "27in", "waist": "N/A"},
+        "fit_notes": "Roomy fit. Size down if you want slimmer.",
+        "negotiable": True,
+    },
+    {
+        "name": "Aime Leon Dore Wool Overcoat",
+        "description": "Camel, tailored fit. Elevated streetwear.",
+        "category": ProductCategory.CLOTHES,
+        "tier": ProductTier.PREMIUM,
+        "brand": "Aime Leon Dore",
+        "price_kes": 11500,
+        "tag_size": "L",
+        "measurements": {"pit_to_pit": "23in", "shoulder_to_hem": "38in", "waist": "N/A"},
+        "fit_notes": "Tailored fit. True to size. Length hits mid-thigh.",
+        "negotiable": True,
+    },
+    # Premium Shoes (5,000 - 12,000 KES)
+    {
+        "name": "Air Jordan 1 High - Chicago",
+        "description": "2015 release, some creasing. The grail.",
+        "category": ProductCategory.SHOES,
+        "tier": ProductTier.PREMIUM,
+        "brand": "Jordan",
+        "price_kes": 11000,
+        "tag_size": "US 9.5",
+        "measurements": {"us_size": 9.5, "uk_size": 8.5, "cm": 27.5},
+        "fit_notes": "True to size. Classic Jordan 1 fit.",
+        "negotiable": True,
+    },
+    {
+        "name": "Nike Dunk Low - Syracuse",
+        "description": "Orange and white, college colorway. Dunk hype.",
+        "category": ProductCategory.SHOES,
+        "tier": ProductTier.PREMIUM,
+        "brand": "Nike",
+        "price_kes": 9000,
+        "tag_size": "US 10",
+        "measurements": {"us_size": 10, "uk_size": 9, "cm": 28},
+        "fit_notes": "True to size. Narrow fit.",
+        "negotiable": True,
+    },
+    {
+        "name": "New Balance 990v5 - Grey",
+        "description": "Made in USA, dad shoe royalty. Comfort and status.",
+        "category": ProductCategory.SHOES,
+        "tier": ProductTier.PREMIUM,
+        "brand": "New Balance",
+        "price_kes": 7800,
+        "tag_size": "US 10.5",
+        "measurements": {"us_size": 10.5, "uk_size": 10, "cm": 28.5},
+        "fit_notes": "True to size. Wide feet friendly.",
+        "negotiable": True,
+    },
+    {
+        "name": "Yeezy Boost 350 V2 - Zebra",
+        "description": "White/black stripe, Boost comfort. Kanye era classic.",
+        "category": ProductCategory.SHOES,
+        "tier": ProductTier.PREMIUM,
+        "brand": "Adidas Yeezy",
+        "price_kes": 9500,
+        "tag_size": "US 11",
+        "measurements": {"us_size": 11, "uk_size": 10.5, "cm": 29},
+        "fit_notes": "Size up half size from your usual. Yeezys run small.",
+        "negotiable": True,
+    },
 ]
 
 
 # ============================================================================
-# Seed Functions
+# SEEDING FUNCTIONS
 # ============================================================================
 
-async def seed_inventory():
-    """
-    Seed database with realistic thrift inventory items.
-    
-    Safety:
-    - Checks for existing items by SKU (idempotent)
-    - Only adds new items
-    """
+async def clear_inventory() -> None:
+    """Clear all inventory items from the database."""
     async with async_session_maker() as session:
-        async with session.begin():
-            print("🌱 Starting database seed...")
-            
-            added_count = 0
-            skipped_count = 0
-            
-            for item_data in SEED_ITEMS:
-                # Check if item already exists
-                from sqlalchemy import select
-                statement = select(Inventory).where(
-                    Inventory.sku == item_data["sku"]
-                )
-                result = await session.execute(statement)
-                existing = result.scalar_one_or_none()
-                
-                if existing:
-                    print(f"⏭️  Skipping {item_data['sku']} (already exists)")
-                    skipped_count += 1
-                    continue
-                
-                # Create new inventory item
-                item = Inventory(**item_data)
-                session.add(item)
-                print(f"✅ Added: {item_data['name']} ({item_data['sku']})")
-                added_count += 1
-            
-            await session.commit()
-            
-            print("\n" + "="*60)
-            print(f"✨ Seed completed!")
-            print(f"   Added: {added_count} items")
-            print(f"   Skipped: {skipped_count} items (already existed)")
-            print("="*60)
+        from sqlalchemy import delete
+        
+        logger.info("Clearing inventory table...")
+        result = await session.execute(delete(Inventory))
+        await session.commit()
+        logger.info(f"Deleted {result.rowcount} inventory items")
 
 
-async def clear_inventory():
-    """
-    Clear all inventory items (DANGEROUS - use with caution).
-    
-    This is useful for testing, but should NEVER be run in production.
-    """
-    print("⚠️  WARNING: This will DELETE all inventory items!")
-    confirmation = input("Type 'DELETE ALL' to confirm: ")
-    
-    if confirmation != "DELETE ALL":
-        print("❌ Aborted. No items were deleted.")
-        return
-    
+async def seed_inventory() -> None:
+    """Seed the database with 40 thrift items."""
     async with async_session_maker() as session:
-        async with session.begin():
-            from sqlalchemy import delete
-            statement = delete(Inventory)
-            result = await session.execute(statement)
-            await session.commit()
+        # Combine all items
+        all_items = BUDGET_ITEMS + MID_RANGE_ITEMS + PREMIUM_ITEMS
+        
+        logger.info(f"Seeding {len(all_items)} items into inventory...")
+        
+        # Generate SKU numbers for each tier
+        budget_count = 0
+        mid_count = 0
+        premium_count = 0
+        
+        created_items = []
+        
+        for item_data in all_items:
+            # Generate SKU based on tier
+            if item_data["tier"] == ProductTier.BUDGET:
+                budget_count += 1
+                sku = f"TH-B-{budget_count:03d}"
+            elif item_data["tier"] == ProductTier.MID_RANGE:
+                mid_count += 1
+                sku = f"TH-M-{mid_count:03d}"
+            else:  # PREMIUM
+                premium_count += 1
+                sku = f"TH-P-{premium_count:03d}"
             
-            print(f"🗑️  Deleted {result.rowcount} items")
+            # Create inventory item
+            inventory_item = Inventory(
+                sku=sku,
+                name=item_data["name"],
+                description=item_data["description"],
+                category=item_data["category"],
+                tier=item_data["tier"],
+                brand=item_data["brand"],
+                price_kes=item_data["price_kes"],
+                negotiable=item_data["negotiable"],
+                tag_size=item_data["tag_size"],
+                measurements=item_data["measurements"],
+                fit_notes=item_data["fit_notes"],
+                status=InventoryStatus.AVAILABLE,
+            )
+            created_items.append(inventory_item)
+            
+            logger.info(f"Created: {sku} - {item_data['name']} ({item_data['tier'].value}, {item_data['price_kes']} KES)")
+        
+        # Bulk insert
+        session.add_all(created_items)
+        await session.commit()
+        
+        logger.info(f"\n✅ Successfully seeded {len(created_items)} items!")
+        logger.info(f"   Budget: {budget_count} items")
+        logger.info(f"   Mid-Range: {mid_count} items")
+        logger.info(f"   Premium: {premium_count} items")
+        
+        # Count items with sizing discrepancies
+        discrepancy_count = sum(
+            1 for item in all_items 
+            if "tag says" in item["fit_notes"].lower() or "fits like" in item["fit_notes"].lower()
+        )
+        logger.info(f"   Items with sizing discrepancies: {discrepancy_count} (LLM test cases)")
+
+
+async def verify_seed() -> None:
+    """Verify the seeding was successful."""
+    async with async_session_maker() as session:
+        from sqlalchemy import func, select
+        
+        # Count by tier
+        for tier in [ProductTier.BUDGET, ProductTier.MID_RANGE, ProductTier.PREMIUM]:
+            result = await session.execute(
+                select(func.count(Inventory.id)).where(Inventory.tier == tier)
+            )
+            count = result.scalar()
+            logger.info(f"{tier.value}: {count} items in database")
+        
+        # Count by category
+        for category in [ProductCategory.CLOTHES, ProductCategory.SHOES]:
+            result = await session.execute(
+                select(func.count(Inventory.id)).where(Inventory.category == category)
+            )
+            count = result.scalar()
+            logger.info(f"{category.value}: {count} items in database")
+        
+        # Show sample items
+        logger.info("\n📦 Sample items:")
+        result = await session.execute(
+            select(Inventory).limit(3)
+        )
+        items = result.scalars().all()
+        for item in items:
+            logger.info(f"   {item.sku}: {item.name} - {item.price_kes} KES")
 
 
 # ============================================================================
-# CLI Entry Point
+# MAIN ENTRY POINT
 # ============================================================================
 
 async def main():
-    """Main CLI entry point."""
-    import argparse
+    """Main entry point for the seed script."""
+    if len(sys.argv) < 2:
+        print("Usage: python seed_db.py [seed|clear|verify]")
+        print("  seed   - Clear and re-seed the database")
+        print("  clear  - Clear all inventory items")
+        print("  verify - Verify current inventory count")
+        sys.exit(1)
     
-    parser = argparse.ArgumentParser(description="Database seeding utility")
-    parser.add_argument(
-        "command",
-        choices=["seed", "clear"],
-        help="Command to run (seed=add items, clear=delete all)"
-    )
+    command = sys.argv[1].lower()
     
-    args = parser.parse_args()
-    
-    if args.command == "seed":
-        await seed_inventory()
-    elif args.command == "clear":
+    if command == "clear":
         await clear_inventory()
+    elif command == "seed":
+        await clear_inventory()
+        await seed_inventory()
+        await verify_seed()
+    elif command == "verify":
+        await verify_seed()
+    else:
+        print(f"Unknown command: {command}")
+        print("Usage: python seed_db.py [seed|clear|verify]")
+        sys.exit(1)
 
 
 if __name__ == "__main__":
