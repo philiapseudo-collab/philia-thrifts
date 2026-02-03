@@ -49,7 +49,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
             command.upgrade(alembic_cfg, "head")
             logger.info("Database migrations completed successfully")
         except Exception as e:
-            logger.error(f"Database migration failed: {e}")
+            logger.error(f"Database migration failed: {e}", exc_info=True)
             # Don't crash on migration failure - tables might already exist
     else:
         logger.warning("DATABASE_URL not configured, skipping database migrations")
