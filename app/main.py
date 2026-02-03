@@ -38,17 +38,21 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     logger.info(f"Log Level: {settings.LOG_LEVEL}")
     logger.info(f"Configured: {settings.is_configured}")
     
-    # Initialize database (dev only - use migrations in production)
-    if settings.is_local and settings.DATABASE_URL:
-        from app.db.database import init_db
-        logger.info("Initializing database tables (local dev mode)")
+    # Run database migrations
+    if settings.DATABASE_URL:
+        logger.info("Running database migrations...")
         try:
-            await init_db()
-            logger.info("Database initialized successfully")
+            from alembic.config import Config
+            from alembic import command
+            
+            alembic_cfg = Config("alembic.ini")
+            command.upgrade(alembic_cfg, "head")
+            logger.info("Database migrations completed successfully")
         except Exception as e:
-            logger.error(f"Database initialization failed: {e}")
-    elif not settings.DATABASE_URL:
-        logger.warning("DATABASE_URL not configured, skipping database initialization")
+            logger.error(f"Database migration failed: {e}")
+            # Don't crash on migration failure - tables might already exist
+    else:
+        logger.warning("DATABASE_URL not configured, skipping database migrations")
     
     # Initialize Sentry (if configured)
     if settings.SENTRY_DSN:
