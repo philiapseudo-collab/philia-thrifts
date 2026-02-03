@@ -47,7 +47,7 @@ def upgrade() -> None:
     op.create_index(op.f('ix_inventory_brand'), 'inventory', ['brand'], unique=False)
     
     # Drop old columns that are being replaced
-    op.drop_index('ix_inventory_price', table_name='inventory')
+    # Note: ix_inventory_price index may not exist depending on initial migration
     op.drop_column('inventory', 'price')
     op.drop_column('inventory', 'size_label')  # Replaced by tag_size
     
@@ -76,9 +76,6 @@ def downgrade() -> None:
     # Add back old columns
     op.add_column('inventory', sa.Column('price', sa.NUMERIC(precision=10, scale=2), autoincrement=False, nullable=False))
     op.add_column('inventory', sa.Column('size_label', sa.VARCHAR(length=50), autoincrement=False, nullable=True))
-    
-    # Create old indexes
-    op.create_index('ix_inventory_price', 'inventory', ['price'], unique=False)
     
     # Drop new indexes
     op.drop_index(op.f('ix_inventory_brand'), table_name='inventory')
