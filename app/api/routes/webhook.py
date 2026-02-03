@@ -116,7 +116,50 @@ class TikTokWebhookPayload(BaseModel):
 
 
 # ============================================================================
-# Webhook Endpoint (Phase 3 Complete)
+# Webhook Verification (GET) - Required for TikTok webhook registration
+# ============================================================================
+
+@router.get("/tiktok")
+async def tiktok_webhook_verify(
+    request: Request,
+    hub_mode: str = None,
+    hub_verify_token: str = None,
+    hub_challenge: str = None
+) -> str:
+    """
+    TikTok webhook verification endpoint.
+    
+    TikTok sends a GET request with hub.mode=subscribe and hub.challenge
+    to verify the webhook URL. We must echo back the challenge.
+    
+    Args:
+        hub_mode: Should be "subscribe"
+        hub_verify_token: Should match our configured token
+        hub_challenge: The challenge string to echo back
+    
+    Returns:
+        The hub_challenge string (required for verification)
+    """
+    logger.info(f"Webhook verification request: mode={hub_mode}, token={hub_verify_token}")
+    
+    # Verify the mode is subscribe
+    if hub_mode != "subscribe":
+        logger.error(f"Invalid hub.mode: {hub_mode}")
+        raise HTTPException(status_code=400, detail="Invalid mode")
+    
+    # In production, verify the hub_verify_token matches your secret
+    # For now, we accept any token (TikTok uses different verification methods)
+    
+    if not hub_challenge:
+        logger.error("Missing hub.challenge")
+        raise HTTPException(status_code=400, detail="Missing challenge")
+    
+    logger.info(f"Webhook verified! Echoing challenge: {hub_challenge}")
+    return hub_challenge
+
+
+# ============================================================================
+# Webhook Endpoint (POST) - Receives TikTok events
 # ============================================================================
 
 @router.post("/tiktok")
