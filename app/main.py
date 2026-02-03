@@ -42,22 +42,21 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     if settings.DATABASE_URL:
         logger.info("Running database migrations...")
         try:
-            import asyncio
-            from concurrent.futures import ThreadPoolExecutor
-            from alembic.config import Config
-            from alembic import command
-            
-            def run_migrations():
-                """Run migrations in a separate thread (sync context)."""
-                alembic_cfg = Config("alembic.ini")
-                command.upgrade(alembic_cfg, "head")
-            
-            # Run in thread pool to avoid blocking event loop
-            loop = asyncio.get_event_loop()
-            with ThreadPoolExecutor() as pool:
-                await loop.run_in_executor(pool, run_migrations)
-            
+            import subprocess
+            result = subprocess.run(
+                ["alembic", "upgrade", "head"],
+                capture_output=True,
+                text=True,
+                check=True
+            )
             logger.info("Database migrations completed successfully")
+            if result.stdout:
+                logger.info(result.stdout)
+        except subprocess.CalledProcessError as e:
+            logger.error(f"Database migration failed: {e}")
+            logger.error(f"stdout: {e.stdout}")
+            logger.error(f"stderr: {e.stderr}")
+            # Don't crash on migration failure
         except Exception as e:
             logger.error(f"Database migration failed: {e}", exc_info=True)
             # Don't crash on migration failure - tables might already exist
