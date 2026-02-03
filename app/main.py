@@ -95,10 +95,11 @@ app.add_middleware(
 )
 
 # Include routers
-from app.api.routes import health, webhook
+from app.api.routes import health, webhook, admin
 
 app.include_router(health.router)
 app.include_router(webhook.router)
+app.include_router(admin.router)
 
 
 # ============================================================================
