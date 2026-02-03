@@ -10,7 +10,7 @@ logger = logging.getLogger(__name__)
 
 
 def verify_tiktok_signature(
-    client_secret: str,
+    client_secret: Optional[str],
     signature: Optional[str],
     raw_body: bytes
 ) -> bool:
@@ -23,7 +23,7 @@ def verify_tiktok_signature(
     - Standard hex digest format (no prefix)
     
     Args:
-        client_secret: TikTok webhook secret from settings
+        client_secret: TikTok webhook secret from settings (may be None)
         signature: X-TikTok-Signature header value (may be None)
         raw_body: Raw request body bytes (MUST be original, un-parsed bytes)
     
@@ -41,6 +41,11 @@ def verify_tiktok_signature(
         >>> sig = "abc123..."  # From X-TikTok-Signature header
         >>> is_valid = verify_tiktok_signature(secret, sig, body)
     """
+    # Handle missing secret
+    if client_secret is None or client_secret == "":
+        logger.warning("TikTok webhook secret not configured")
+        return False
+    
     # Handle missing signature
     if signature is None or signature == "":
         logger.warning("Missing X-TikTok-Signature header")

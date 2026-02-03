@@ -8,8 +8,6 @@ from typing import AsyncGenerator
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import settings
-from app.db.database import init_db
-from app.api.routes import health, webhook
 
 # Configure logging
 logging.basicConfig(
@@ -38,11 +36,19 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     logger.info("🚀 Starting Philia Thrifts TikTok Bot")
     logger.info(f"Environment: {settings.ENVIRONMENT}")
     logger.info(f"Log Level: {settings.LOG_LEVEL}")
+    logger.info(f"Configured: {settings.is_configured}")
     
     # Initialize database (dev only - use migrations in production)
-    if settings.is_local:
+    if settings.is_local and settings.DATABASE_URL:
+        from app.db.database import init_db
         logger.info("Initializing database tables (local dev mode)")
-        await init_db()
+        try:
+            await init_db()
+            logger.info("Database initialized successfully")
+        except Exception as e:
+            logger.error(f"Database initialization failed: {e}")
+    elif not settings.DATABASE_URL:
+        logger.warning("DATABASE_URL not configured, skipping database initialization")
     
     # Initialize Sentry (if configured)
     if settings.SENTRY_DSN:
@@ -85,6 +91,8 @@ app.add_middleware(
 )
 
 # Include routers
+from app.api.routes import health, webhook
+
 app.include_router(health.router)
 app.include_router(webhook.router)
 
@@ -100,6 +108,7 @@ async def root():
         "service": "Philia Thrifts TikTok Bot",
         "version": "1.0.0",
         "status": "operational",
+        "configured": settings.is_configured,
         "docs": "/docs" if settings.is_local else "disabled",
     }
 

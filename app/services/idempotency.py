@@ -7,7 +7,7 @@ Strategy:
 """
 import logging
 from typing import Optional
-from app.core.redis import get_redis_client
+from app.core.redis import _get_redis_client
 
 logger = logging.getLogger(__name__)
 
@@ -47,7 +47,12 @@ async def check_and_set(event_id: str, ttl: int = 600) -> bool:
     - Worker writes permanent log to PostgreSQL IdempotencyLog
     """
     try:
-        client = await get_redis_client()
+        client = await _get_redis_client()
+        if client is None:
+            # Redis not configured, fail open
+            logger.warning("Redis not configured, allowing event through (fail-open)")
+            return False
+        
         key = f"idempotency:{event_id}"
         
         # SETNX: SET if Not eXists
@@ -90,7 +95,10 @@ async def mark_completed(event_id: str, status: str = "success") -> None:
         status: Processing status (success, error, etc.)
     """
     try:
-        client = await get_redis_client()
+        client = await _get_redis_client()
+        if client is None:
+            return
+        
         key = f"idempotency:{event_id}"
         
         # Update value to reflect completion status
@@ -114,7 +122,10 @@ async def get_event_status(event_id: str) -> Optional[str]:
         Status string or None if not found
     """
     try:
-        client = await get_redis_client()
+        client = await _get_redis_client()
+        if client is None:
+            return None
+        
         key = f"idempotency:{event_id}"
         status = await client.get(key)
         return status

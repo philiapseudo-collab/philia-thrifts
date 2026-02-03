@@ -46,6 +46,11 @@ def process_message(
     Returns:
         Status dictionary for Celery result backend
     """
+    # Check if database is configured
+    if async_session_maker is None:
+        logger.error("Cannot process message: Database not configured")
+        return {"status": "error", "reason": "database_not_configured"}
+    
     logger.info(f"Processing event {event_id} from user {user_id}")
     
     # Run async processing logic

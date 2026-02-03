@@ -15,7 +15,7 @@ from pydantic import BaseModel, Field
 from app.core.config import settings
 from app.core.security import verify_tiktok_signature
 from app.services.idempotency import check_and_set
-from app.worker.tasks import process_message
+from app.worker.celery_app import celery_app
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/webhook", tags=["webhooks"])
@@ -145,6 +145,11 @@ async def tiktok_webhook(
         - Celery dispatch is non-blocking
         - Total response time <200ms (TikTok requirement)
     """
+    # Check if Redis/Celery are configured
+    if not settings.REDIS_URL:
+        logger.error("Webhook received but Redis not configured")
+        raise HTTPException(status_code=503, detail="Service not fully configured")
+    
     # Step 1: Read raw body for HMAC validation
     raw_body = await request.body()
     
@@ -191,6 +196,9 @@ async def tiktok_webhook(
     try:
         # Pass raw payload as JSON string for worker debugging
         raw_payload_json = json.dumps(payload_dict)
+        
+        # Import here to avoid circular imports
+        from app.worker.tasks import process_message
         
         process_message.delay(
             event_id=event_id,
