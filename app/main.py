@@ -104,13 +104,14 @@ app.add_middleware(
 )
 
 # Include routers
-from app.api.routes import health, webhook, admin, seed, auth
+from app.api.routes import health, webhook, admin, seed, auth, seed_button
 
 app.include_router(health.router)
 app.include_router(webhook.router)
 app.include_router(admin.router)
 app.include_router(seed.router)
 app.include_router(auth.router)
+app.include_router(seed_button.router)
 
 
 # ============================================================================
