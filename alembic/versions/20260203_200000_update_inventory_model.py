@@ -26,10 +26,10 @@ def upgrade() -> None:
     # Add new columns to inventory table
     op.add_column('inventory', sa.Column('category', sa.Enum('CLOTHES', 'SHOES', name='productcategory'), nullable=True))
     op.add_column('inventory', sa.Column('tier', sa.Enum('BUDGET', 'MID_RANGE', 'PREMIUM', name='producttier'), nullable=True))
-    op.add_column('inventory', sa.Column('brand', sqlmodel.sql.sqltypes.AutoString(length=100), nullable=True))
+    op.add_column('inventory', sa.Column('brand', sa.String(length=100), nullable=True))
     op.add_column('inventory', sa.Column('price_kes', sa.Integer(), nullable=True))
     op.add_column('inventory', sa.Column('negotiable', sa.Boolean(), nullable=True))
-    op.add_column('inventory', sa.Column('tag_size', sqlmodel.sql.sqltypes.AutoString(length=50), nullable=True))
+    op.add_column('inventory', sa.Column('tag_size', sa.String(length=50), nullable=True))
     op.add_column('inventory', sa.Column('fit_notes', sa.Text(), nullable=True))
     
     # Create indexes for new columns

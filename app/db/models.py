@@ -121,13 +121,13 @@ class Inventory(SQLModel, table=True):
     
     # New fields for TikTok automation bot
     category: ProductCategory = Field(
-        sa_column=Column(SQLEnum(ProductCategory, native_enum=False))
+        sa_column=Column(SQLEnum(ProductCategory, native_enum=False), index=True)
     )
     tier: ProductTier = Field(
         sa_column=Column(SQLEnum(ProductTier, native_enum=False), index=True)
     )
-    brand: Optional[str] = Field(default=None, max_length=100, nullable=True)
-    price_kes: int = Field(sa_column=Column(Integer), index=True)
+    brand: Optional[str] = Field(default=None, max_length=100, nullable=True, index=True)
+    price_kes: int = Field(sa_column=Column(Integer, index=True))
     negotiable: bool = Field(default=False)
     
     # Sizing fields (critical for AI SDR)
@@ -143,6 +143,8 @@ class Inventory(SQLModel, table=True):
         sa_column=Column(SQLEnum(InventoryStatus, native_enum=False), index=True)
     )
     image_url: Optional[str] = Field(default=None, max_length=500)
+    
+    # Timestamps
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 
