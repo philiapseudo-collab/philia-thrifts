@@ -62,7 +62,7 @@ PREMIUM_ITEMS: List[Dict[str, Any]] = [
 
 
 @router.post("/admin/seed-now")
-async def seed_database_direct() -> Dict[str, str]:
+async def seed_database_direct() -> Dict[str, Any]:
     """
     Seed the database directly with 40 thrift items.
     """
