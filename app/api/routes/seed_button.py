@@ -124,28 +124,27 @@ HTML_PAGE = """
             
             btn.disabled = true;
             status.className = 'status loading';
-            status.innerHTML = '<span class="spinner"></span> Seeding database... This may take 30-60 seconds';
+            status.innerHTML = '<span class="spinner"></span> Seeding database... This may take 10-20 seconds';
             
             try {
-                const response = await fetch('/admin/seed/run', {
+                const response = await fetch('/admin/seed-now', {
                     method: 'POST'
                 });
                 
                 const data = await response.json();
                 
-                if (response.ok) {
+                if (data.status === 'success') {
                     status.className = 'status success';
-                    status.innerHTML = '✅ ' + data.message + '<br><br><small>Check logs for details</small>';
+                    status.innerHTML = '✅ ' + data.message + '<br>Budget: ' + data.budget + ', Mid-Range: ' + data.mid_range + ', Premium: ' + data.premium;
                 } else {
                     status.className = 'status error';
-                    status.innerHTML = '❌ Error: ' + (data.detail || 'Unknown error');
+                    status.innerHTML = '❌ Error: ' + data.message;
                 }
             } catch (error) {
                 status.className = 'status error';
                 status.innerHTML = '❌ Network error: ' + error.message;
             } finally {
                 btn.disabled = false;
-                checkInventory();
             }
         }
         
@@ -160,41 +159,26 @@ HTML_PAGE = """
             status.innerHTML = '<span class="spinner"></span> Clearing inventory...';
             
             try {
-                const response = await fetch('/admin/seed/clear', {
+                const response = await fetch('/admin/clear-now', {
                     method: 'POST'
                 });
                 
                 const data = await response.json();
                 
-                if (response.ok) {
+                if (data.status === 'success') {
                     status.className = 'status success';
                     status.innerHTML = '✅ ' + data.message;
                 } else {
                     status.className = 'status error';
-                    status.innerHTML = '❌ Error: ' + (data.detail || 'Unknown error');
+                    status.innerHTML = '❌ Error: ' + data.message;
                 }
             } catch (error) {
                 status.className = 'status error';
                 status.innerHTML = '❌ Network error: ' + error.message;
             } finally {
                 btn.disabled = false;
-                checkInventory();
             }
         }
-        
-        async function checkInventory() {
-            const countDiv = document.getElementById('inventoryCount');
-            try {
-                const response = await fetch('/admin/seed/verify');
-                const data = await response.json();
-                countDiv.innerHTML = '<pre>' + JSON.stringify(data, null, 2) + '</pre>';
-            } catch (e) {
-                countDiv.innerHTML = 'Unable to check inventory count';
-            }
-        }
-        
-        // Check inventory on page load
-        checkInventory();
     </script>
 </body>
 </html>
