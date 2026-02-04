@@ -19,11 +19,15 @@ import asyncio
 import logging
 import random
 import sys
+import os
 from typing import List, Dict, Any
 from sqlmodel import select
 
 # Add parent directory to path for imports
-sys.path.insert(0, "c:\\projects\\philia-thrifts")
+# Support both local dev (c:\projects) and Railway deployment (/app)
+current_dir = os.path.dirname(os.path.abspath(__file__))
+parent_dir = os.path.dirname(current_dir)
+sys.path.insert(0, parent_dir)
 
 from app.db.database import async_session_maker, engine
 from app.db.models import Inventory, ProductCategory, ProductTier, InventoryStatus
