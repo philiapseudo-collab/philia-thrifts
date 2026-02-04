@@ -120,12 +120,8 @@ class Inventory(SQLModel, table=True):
     description: Optional[str] = Field(default=None, sa_column=Column(String))
     
     # New fields for TikTok automation bot
-    category: ProductCategory = Field(
-        sa_column=Column(SQLEnum(ProductCategory, native_enum=False), index=True)
-    )
-    tier: ProductTier = Field(
-        sa_column=Column(SQLEnum(ProductTier, native_enum=False), index=True)
-    )
+    category: str = Field(max_length=20, index=True)
+    tier: str = Field(max_length=20, index=True)
     brand: Optional[str] = Field(default=None, max_length=100, nullable=True, index=True)
     price_kes: int = Field(sa_column=Column(Integer, index=True))
     negotiable: bool = Field(default=False)
@@ -138,10 +134,7 @@ class Inventory(SQLModel, table=True):
     )
     fit_notes: str = Field(sa_column=Column(Text))  # Detailed fit explanation
     
-    status: InventoryStatus = Field(
-        default=InventoryStatus.AVAILABLE,
-        sa_column=Column(SQLEnum(InventoryStatus, native_enum=False), index=True)
-    )
+    status: str = Field(default="AVAILABLE", max_length=20, index=True)
     image_url: Optional[str] = Field(default=None, max_length=500)
     
     # Timestamps
