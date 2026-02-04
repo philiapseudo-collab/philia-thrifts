@@ -3,11 +3,26 @@ FastAPI application entrypoint.
 Production-grade TikTok DM bot for Philia Thrifts.
 """
 import logging
+import subprocess
+import threading
 from contextlib import asynccontextmanager
 from typing import AsyncGenerator
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import settings
+
+# Start Celery worker in background thread
+def start_celery_worker():
+    """Start Celery worker as a background process."""
+    import time
+    time.sleep(5)  # Wait for app to start
+    subprocess.run([
+        "celery", "-A", "app.worker.celery_app", 
+        "worker", "--loglevel=info", "--concurrency=2"
+    ])
+
+# Start Celery in background
+threading.Thread(target=start_celery_worker, daemon=True).start()
 
 # Configure logging
 logging.basicConfig(
