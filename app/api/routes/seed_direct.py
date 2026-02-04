@@ -108,7 +108,7 @@ async def seed_database_direct() -> Dict[str, str]:
                     tag_size=item_data["tag_size"],
                     measurements=item_data["measurements"],
                     fit_notes=item_data["fit_notes"],
-                    status=InventoryStatus.AVAILABLE,
+                    status="AVAILABLE",
                 )
                 created_items.append(inventory_item)
                 logger.info(f"Created: {sku} - {item_data['name']}")
